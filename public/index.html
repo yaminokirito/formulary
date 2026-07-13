@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulary — Medicine Inventory</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <!-- Firebase (compat) SDKs: replace config below in the main script with your project's config -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#16241F',
+          inksoft: '#4B5D56',
+          primary: '#1F5F4E',
+          primarydark: '#153F34',
+          primarysoft: '#E4EFE9',
+          amber: '#C97A2B',
+          ambersoft: '#FBEEDD',
+          danger: '#B23B3B',
+          dangersoft: '#FBE7E5',
+          paper: '#F5F6F2',
+          surface: '#FFFFFF',
+          line: '#DDE3DC',
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+        borderRadius: {
+          xl2: '1.1rem',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-feature-settings: "cv11", "ss01"; }
+
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid #1F5F4E; outline-offset: 2px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+
+  .clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Stamp badge — rubber-stamp status indicator */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1.5px solid currentColor;
+    padding: 3px 9px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    transform: rotate(-1.5deg);
+    white-space: nowrap;
+  }
+  .stamp .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+  /* Ticket tear-line between photo and details on medicine cards */
+  .ticket-line {
+    position: relative;
+    border-top: 1.5px dashed #C9D2CB;
+    margin: 0 14px;
+  }
+  .ticket-line::before, .ticket-line::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    width: 16px;
+    height: 16px;
+    background: #F5F6F2;
+    border-radius: 50%;
+  }
+  .ticket-line::before { left: -22px; }
+  .ticket-line::after { right: -22px; }
+
+  /* Vial stock meter */
+  .vial { width: 100%; height: 7px; background: #E7EBE5; border-radius: 999px; overflow: hidden; }
+  .vial-fill { height: 100%; border-radius: 999px; transition: width .5s cubic-bezier(.4,0,.2,1); }
+
+  .role-btn { padding: 6px 16px; font-size: 13px; font-weight: 600; border-radius: 999px; transition: color .15s, background-color .15s; color: #4B5D56; }
+  .role-btn.active { background: #1F5F4E; color: #fff; }
+
+  .tab-btn {
+    padding: 8px 4px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #4B5D56;
+    border-bottom: 2.5px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .tab-btn.active { color: #1F5F4E; border-color: #1F5F4E; }
+
+  .chip {
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid #DDE3DC;
+    color: #4B5D56;
+    background: #fff;
+    transition: background-color .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .chip.active { background: #16241F; color: #fff; border-color: #16241F; }
+
+  .field-label { font-size: 12.5px; font-weight: 600; color: #16241F; margin-bottom: 5px; display: block; }
+  .field-input {
+    width: 100%;
+    border: 1.5px solid #DDE3DC;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 14px;
+    background: #fff;
+    color: #16241F;
+  }
+  .field-input:focus { border-color: #1F5F4E; }
+  .field-hint { font-size: 11.5px; color: #4B5D56; margin-top: 4px; }
+
+  .btn-primary { background: #1F5F4E; color: #fff; font-weight: 600; border-radius: 10px; padding: 9px 18px; font-size: 13.5px; transition: background-color .15s; }
+  .btn-primary:hover { background: #153F34; }
+  .btn-primary:disabled { background: #A9B6B0; cursor: not-allowed; }
+  .btn-secondary { background: #fff; color: #16241F; font-weight: 600; border-radius: 10px; padding: 9px 18px; font-size: 13.5px; border: 1.5px solid #DDE3DC; transition: background-color .15s; }
+  .btn-secondary:hover { background: #F5F6F2; }
+  .btn-danger { background: #B23B3B; color: #fff; font-weight: 600; border-radius: 10px; padding: 9px 18px; font-size: 13.5px; }
+  .btn-danger:hover { background: #94302F; }
+  .icon-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: rgba(255,255,255,.92); color: #16241F; transition: background-color .15s; }
+  .icon-btn:hover { background: #fff; }
+
+  .modal-overlay { background: rgba(22,36,31,.45); backdrop-filter: blur(2px); }
+  .modal-card { max-height: 88vh; overflow-y: auto; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #C9D2CB; border-radius: 999px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .toast { animation: toast-in .2s ease-out; }
+
+  @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .modal-anim { animation: modal-in .18s ease-out; }
+</style>
+</head>
+<body class="bg-paper font-body text-ink antialiased min-h-screen">
+
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="toast-root" class="fixed bottom-4 right-4 z-[70] flex flex-col gap-2 items-end"></div>
+
+<script>
+/* ============================== CONSTANTS ============================== */
+const CATEGORIES = ['Pain Relief','Antibiotics','Antihistamines','Vitamins & Supplements','First Aid','Chronic Care','Digestive Health','Respiratory','Other'];
+
+const STOCK_META = {
+  out: { label: 'Out of stock', text: 'text-danger', bg: 'bg-dangersoft', fill: '#B23B3B' },
+  low: { label: 'Low stock',    text: 'text-amber',  bg: 'bg-ambersoft',  fill: '#C97A2B' },
+  ok:  { label: 'In stock',     text: 'text-primary',bg: 'bg-primarysoft',fill: '#1F5F4E' },
+};
+
+const REQ_META = {
+  pending:   { label: 'Pending',   text: 'text-amber',   bg: 'bg-ambersoft' },
+  approved:  { label: 'Approved',  text: 'text-primary', bg: 'bg-primarysoft' },
+  fulfilled: { label: 'Fulfilled', text: 'text-ink',      bg: 'bg-line/50' },
+  rejected:  { label: 'Rejected',  text: 'text-danger',  bg: 'bg-dangersoft' },
+  cancelled: { label: 'Cancelled', text: 'text-inksoft',  bg: 'bg-line/50' },
+};
+
+const CATEGORY_TINTS = ['#1F5F4E','#C97A2B','#5B6E9B','#8A5A44','#4B7A6F','#9B6B8E','#6E7A3F','#B25C3B','#3F6E7A'];
+function categoryTint(cat){
+  let h = 0;
+  for (let i=0;i<cat.length;i++) h = (h*31 + cat.charCodeAt(i)) >>> 0;
+  return CATEGORY_TINTS[h % CATEGORY_TINTS.length];
+}
+
+/* ============================== ICONS ============================== */
+function icon(name, size){
+  size = size || 18;
+  const common = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+  const map = {
+    logo: `<svg ${common}><path d="M9 3h6v4a3 3 0 0 1-1 2.2l-1 .9 1 .9A3 3 0 0 1 15 13v4a3 3 0 0 1-6 0v-4a3 3 0 0 1 1-2.2l1-.9-1-.9A3 3 0 0 1 9 7V3z"/><path d="M9 8h6"/><path d="M9 13h6"/></svg>`,
+    plus: `<svg ${common}><path d="M12 5v14M5 12h14"/></svg>`,
+    edit: `<svg ${common}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+    trash: `<svg ${common}><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
+    search: `<svg ${common}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+    x: `<svg ${common}><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>`,
+    check: `<svg ${common}><path d="M20 6 9 17l-5-5"/></svg>`,
+    bell: `<svg ${common}><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>`,
+    camera: `<svg ${common}><path d="M14.5 4h-5L7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3.5"/></svg>`,
+    clock: `<svg ${common}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+    box: `<svg ${common}><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>`,
+    pill: `<svg ${common}><rect x="3.5" y="9.5" width="17" height="7" rx="3.5" transform="rotate(-35 12 13)"/><path d="m9.5 9.5 5 5" transform="rotate(-35 12 13)"/></svg>`,
+    user: `<svg ${common}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>`,
+    layers: `<svg ${common}><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>`,
+    alert: `<svg ${common}><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>`,
+    slash: `<svg ${common}><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></svg>`,
+    inbox: `<svg ${common}><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-7l3.5-7Z"/></svg>`,
+  };
+  return map[name] || '';
+}
+
+/* ============================== STATE ============================== */
+const state = {
+  role: 'user',
+  tab: 'browse',
+  medicines: [],
+  requests: [],
+  userName: '',
+  onboardingDismissed: false,
+  search: '',
+  category: 'All',
+  reqStatusFilter: 'All',
+  loading: true,
+};
+
+let pendingPhotoData = null;
+let pendingConfirmAction = null;
+
+/* ============================== HELPERS ============================== */
+function esc(str){
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function generateId(){
+  return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+function batchCode(){
+  return 'RX-' + Math.random().toString(36).slice(2,6).toUpperCase();
+}
+function formatDate(iso){
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } catch(e){ return ''; }
+}
+function getStockStatus(m){
+  if (m.stock <= 0) return 'out';
+  if (m.stock <= m.threshold) return 'low';
+  return 'ok';
+}
+function stockFillPct(m){
+  if (m.stock <= 0) return 0;
+  const ref = Math.max(m.threshold * 3, 1);
+  return Math.max(6, Math.min(100, Math.round((m.stock / ref) * 100)));
+}
+function findMedicine(id){ return state.medicines.find(m => m.id === id); }
+function findRequest(id){ return state.requests.find(r => r.id === id); }
+
+/* ============================== STORAGE ============================== */
+/* FIREBASE CONFIG: replace `null` with your project's config object from Firebase console */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDskXSZz8xlB9RMSkBn0EbwRieiEelrLIg",
+  authDomain: "formulary-3a4ab.firebaseapp.com",
+  projectId: "formulary-3a4ab",
+  storageBucket: "formulary-3a4ab.firebasestorage.app",
+  messagingSenderId: "829146334892",
+  appId: "1:829146334892:web:47f14174a1e5d03c914109",
+  measurementId: "G-PCSW51301S"
+};
+let useFirestore = false;
+let firestoreDb = null;
+if (typeof firebase !== 'undefined' && FIREBASE_CONFIG){
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firestoreDb = firebase.firestore();
+    useFirestore = true;
+    console.log('Firestore enabled');
+  } catch(e){ console.error('Firebase init error', e); }
+}
+
+async function firestoreGetAll(collectionName){
+  if (!useFirestore) return null;
+  try {
+    const snapshot = await firestoreDb.collection(collectionName).get();
+    const arr = [];
+    snapshot.forEach(doc => arr.push(doc.data()));
+    return arr;
+  } catch(e){ console.error(e); return null; }
+}
+
+async function firestoreSetAll(collectionName, items){
+  if (!useFirestore) return false;
+  try {
+    const batch = firestoreDb.batch();
+    items.forEach(item => {
+      const ref = firestoreDb.collection(collectionName).doc(item.id);
+      batch.set(ref, item);
+    });
+    await batch.commit();
+    return true;
+  } catch(e){ console.error(e); return false; }
+}
+
+async function safeGet(key, shared){
+  // Try Firestore for known keys first
+  try {
+    if (useFirestore){
+      if (key === 'medicines'){
+        const arr = await firestoreGetAll('medicines');
+        return arr ? JSON.stringify(arr) : null;
+      }
+      if (key === 'requests'){
+        const arr = await firestoreGetAll('requests');
+        return arr ? JSON.stringify(arr) : null;
+      }
+      if (key === 'profile-name' || key === 'onboarding-dismissed'){
+        const doc = await firestoreDb.collection('meta').doc(key).get();
+        if (doc.exists) return doc.data().value;
+      }
+    }
+  } catch(e){ console.error('Firestore read error', e); }
+
+  // Fallback to existing window.storage if available
+  try {
+    if (window.storage && window.storage.get) {
+      const res = await window.storage.get(key, shared);
+      return res ? res.value : null;
+    }
+  } catch(e){}
+  return null;
+}
+
+async function safeSet(key, value, shared){
+  // Try writing to Firestore when enabled
+  try {
+    if (useFirestore){
+      if (key === 'medicines'){
+        const ok = await firestoreSetAll('medicines', JSON.parse(value));
+        await firestoreDb.collection('meta').doc('medicines-updated').set({ts: Date.now()});
+        return ok;
+      }
+      if (key === 'requests'){
+        const ok = await firestoreSetAll('requests', JSON.parse(value));
+        await firestoreDb.collection('meta').doc('requests-updated').set({ts: Date.now()});
+        return ok;
+      }
+      if (key === 'profile-name' || key === 'onboarding-dismissed'){
+        await firestoreDb.collection('meta').doc(key).set({value: value});
+        return true;
+      }
+    }
+  } catch(e){ console.error('Firestore write error', e); }
+
+  try {
+    if (window.storage && window.storage.set) {
+      const res = await window.storage.set(key, value, shared);
+      return !!res;
+    }
+  } catch(e){}
+  return false;
+}
+
+async function loadMedicines(){
+  const raw = await safeGet('medicines', true);
+  state.medicines = raw ? JSON.parse(raw) : [];
+  if (state.medicines.length === 0){
+    state.medicines = seedMedicines();
+    await saveMedicines();
+  }
+}
+async function loadRequests(){
+  const raw = await safeGet('requests', true);
+  state.requests = raw ? JSON.parse(raw) : [];
+}
+async function loadProfile(){
+  const raw = await safeGet('profile-name', false);
+  state.userName = raw || '';
+  const dismissed = await safeGet('onboarding-dismissed', false);
+  state.onboardingDismissed = dismissed === 'true';
+}
+async function saveMedicines(){
+  const ok = await safeSet('medicines', JSON.stringify(state.medicines), true);
+  if (!ok) showToast('Could not save changes — try again', 'error');
+  return ok;
+}
+async function saveRequests(){
+  const ok = await safeSet('requests', JSON.stringify(state.requests), true);
+  if (!ok) showToast('Could not save changes — try again', 'error');
+  return ok;
+}
+async function saveProfileName(name){
+  state.userName = name;
+  await safeSet('profile-name', name, false);
+}
+async function dismissOnboarding(){
+  state.onboardingDismissed = true;
+  await safeSet('onboarding-dismissed', 'true', false);
+}
+
+function seedMedicines(){
+  const now = Date.now();
+  const items = [
+    { name: 'Paracetamol 500mg', category: 'Pain Relief', description: 'Standard tablet for fever and mild to moderate pain relief.', stock: 240, unit: 'tablets', threshold: 50 },
+    { name: 'Amoxicillin 250mg', category: 'Antibiotics', description: 'Broad-spectrum antibiotic capsule. Prescription required for dispensing.', stock: 18, unit: 'capsules', threshold: 30 },
+    { name: 'Cetirizine 10mg', category: 'Antihistamines', description: 'Once-daily tablet for allergy and hay fever symptoms.', stock: 95, unit: 'tablets', threshold: 40 },
+    { name: 'ORS Rehydration Sachets', category: 'First Aid', description: 'Oral rehydration salts for fluid and electrolyte replacement.', stock: 0, unit: 'sachets', threshold: 20 },
+    { name: 'Vitamin C 500mg', category: 'Vitamins & Supplements', description: 'Chewable tablet supporting everyday immune function.', stock: 150, unit: 'tablets', threshold: 30 },
+    { name: 'Omeprazole 20mg', category: 'Digestive Health', description: 'Delayed-release capsule for acid reflux and ulcer treatment.', stock: 60, unit: 'capsules', threshold: 25 },
+  ];
+  return items.map((it, i) => ({
+    id: generateId(),
+    batch: batchCode(),
+    photo: null,
+    createdAt: new Date(now - (items.length - i) * 3600000).toISOString(),
+    ...it,
+  }));
+}
+
+/* ============================== IMAGE RESIZE ============================== */
+function resizeImage(file, maxDim, quality){
+  maxDim = maxDim || 500; quality = quality || 0.75;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim){ height = Math.round(height * (maxDim / width)); width = maxDim; }
+        else if (height >= width && height > maxDim){ width = Math.round(width * (maxDim / height)); height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ============================== TOAST ============================== */
+function showToast(message, type){
+  type = type || 'success';
+  const root = document.getElementById('toast-root');
+  const colors = { success: 'bg-primary', error: 'bg-danger', info: 'bg-ink' };
+  const el = document.createElement('div');
+  el.className = `toast ${colors[type]} text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 max-w-xs`;
+  el.innerHTML = `${type==='success'?icon('check',15):type==='error'?icon('alert',15):icon('bell',15)}<span>${esc(message)}</span>`;
+  root.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .25s'; setTimeout(() => el.remove(), 250); }, 3200);
+}
+
+/* ============================== MODAL ============================== */
+function openModal(html){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="fixed inset-0 modal-overlay z-[60] flex items-center justify-center p-4" data-action="overlay-close">
+      <div class="modal-card modal-anim bg-surface rounded-xl2 shadow-2xl w-full max-w-lg" data-stop>
+        ${html}
+      </div>
+    </div>`;
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(){
+  document.getElementById('modal-root').innerHTML = '';
+  document.body.style.overflow = '';
+  pendingPhotoData = null;
+  pendingConfirmAction = null;
+}
+
+function modalHeader(title){
+  return `
+    <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
+      <h3 class="font-display font-semibold text-lg">${esc(title)}</h3>
+      <button data-action="close-modal" class="icon-btn !bg-transparent hover:!bg-paper" aria-label="Close">${icon('x',18)}</button>
+    </div>`;
+}
+
+/* ---- Medicine form modal ---- */
+function openMedicineForm(existing){
+  pendingPhotoData = existing ? existing.photo : null;
+  const catOptions = CATEGORIES.map(c => `<option value="${esc(c)}" ${existing && existing.category===c ? 'selected':''}>${esc(c)}</option>`).join('');
+  openModal(`
+    ${modalHeader(existing ? 'Edit medicine' : 'Add medicine')}
+    <form id="medicine-form" class="px-6 py-5 space-y-4">
+      <input type="hidden" name="id" value="${existing ? existing.id : ''}">
+      <input type="hidden" name="batch" value="${existing ? existing.batch : batchCode()}">
+
+      <div>
+        <label class="field-label" for="mf-name">Medicine name</label>
+        <input class="field-input" id="mf-name" name="name" required placeholder="e.g. Paracetamol 500mg" value="${existing ? esc(existing.name) : ''}">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="mf-category">Category</label>
+          <select class="field-input" id="mf-category" name="category">${catOptions}</select>
+        </div>
+        <div>
+          <label class="field-label" for="mf-unit">Unit</label>
+          <input class="field-input" id="mf-unit" name="unit" placeholder="tablets, capsules…" value="${existing ? esc(existing.unit) : 'tablets'}">
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label" for="mf-desc">Description</label>
+        <textarea class="field-input" id="mf-desc" name="description" rows="2" placeholder="Short note on use or dosage form">${existing ? esc(existing.description) : ''}</textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="mf-stock">Stock quantity</label>
+          <input class="field-input" id="mf-stock" name="stock" type="number" min="0" required value="${existing ? existing.stock : ''}">
+        </div>
+        <div>
+          <label class="field-label" for="mf-threshold">Low stock at</label>
+          <input class="field-input" id="mf-threshold" name="threshold" type="number" min="0" value="${existing ? existing.threshold : 10}">
+          <p class="field-hint">Flags as low stock at or below this.</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">Photo</label>
+        <div class="flex items-center gap-3">
+          <div id="mf-preview-wrap" class="w-16 h-16 rounded-lg overflow-hidden border border-line flex-none ${pendingPhotoData ? '' : 'hidden'}">
+            <img id="mf-preview" src="${pendingPhotoData || ''}" class="w-full h-full object-cover">
+          </div>
+          <label class="btn-secondary cursor-pointer inline-flex items-center gap-2">
+            ${icon('camera',15)} <span>${pendingPhotoData ? 'Change photo' : 'Upload photo'}</span>
+            <input type="file" accept="image/*" id="mf-photo" class="hidden">
+          </label>
+          <button type="button" data-action="remove-photo" class="text-xs text-inksoft underline ${pendingPhotoData ? '' : 'hidden'}" id="mf-remove-photo">Remove</button>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-line !mt-6 pb-1">
+        <button type="button" data-action="close-modal" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">${existing ? 'Save changes' : 'Add medicine'}</button>
+      </div>
+    </form>
+  `);
+}
+
+/* ---- Request form modal ---- */
+function openRequestForm(medicine){
+  openModal(`
+    ${modalHeader('Request medicine')}
+    <div class="px-6 pt-5">
+      <div class="flex items-center gap-3 bg-paper border border-line rounded-lg p-3">
+        ${medicine.photo ? `<img src="${medicine.photo}" class="w-12 h-12 rounded-md object-cover flex-none">` : placeholderTile(medicine, 48)}
+        <div class="min-w-0">
+          <p class="font-semibold text-sm truncate">${esc(medicine.name)}</p>
+          <p class="text-xs text-inksoft">${medicine.stock} ${esc(medicine.unit)} available</p>
+        </div>
+      </div>
+    </div>
+    <form id="request-form" class="px-6 py-5 space-y-4">
+      <input type="hidden" name="medicineId" value="${medicine.id}">
+      <div>
+        <label class="field-label" for="rf-name">Your name</label>
+        <input class="field-input" id="rf-name" name="requesterName" required placeholder="Full name" value="${esc(state.userName)}">
+      </div>
+      <div>
+        <label class="field-label" for="rf-qty">Quantity</label>
+        <input class="field-input" id="rf-qty" name="quantity" type="number" min="1" max="${medicine.stock}" required placeholder="1">
+        <p class="field-hint">Up to ${medicine.stock} ${esc(medicine.unit)} available.</p>
+      </div>
+      <div>
+        <label class="field-label" for="rf-notes">Notes (optional)</label>
+        <textarea class="field-input" id="rf-notes" name="notes" rows="2" placeholder="Reason, department, or room number"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-line !mt-6 pb-1">
+        <button type="button" data-action="close-modal" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-primary">Submit request</button>
+      </div>
+    </form>
+  `);
+}
+
+/* ---- Confirm modal ---- */
+function openConfirm({title, body, confirmLabel, danger, onConfirm}){
+  pendingConfirmAction = onConfirm;
+  openModal(`
+    ${modalHeader(title)}
+    <div class="px-6 py-5">
+      <p class="text-sm text-inksoft">${esc(body)}</p>
+    </div>
+    <div class="flex justify-end gap-2 px-6 pb-6">
+      <button data-action="close-modal" class="btn-secondary">Cancel</button>
+      <button data-action="confirm-action" class="${danger ? 'btn-danger' : 'btn-primary'}">${esc(confirmLabel || 'Confirm')}</button>
+    </div>
+  `);
+}
+
+/* ---- Reject reason modal ---- */
+function openRejectForm(request){
+  openModal(`
+    ${modalHeader('Reject request')}
+    <form id="reject-form" class="px-6 py-5 space-y-4">
+      <input type="hidden" name="requestId" value="${request.id}">
+      <p class="text-sm text-inksoft">Rejecting the request for <strong>${esc(request.quantity)} ${esc(request.medicineUnit)} of ${esc(request.medicineName)}</strong> from ${esc(request.requesterName)}.</p>
+      <div>
+        <label class="field-label" for="rj-reason">Reason (optional)</label>
+        <textarea class="field-input" id="rj-reason" name="reason" rows="2" placeholder="Let the requester know why"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-line !mt-6 pb-1">
+        <button type="button" data-action="close-modal" class="btn-secondary">Cancel</button>
+        <button type="submit" class="btn-danger">Reject request</button>
+      </div>
+    </form>
+  `);
+}
+
+/* ============================== SMALL RENDER PIECES ============================== */
+function placeholderTile(medicine, size){
+  size = size || 40;
+  const tint = categoryTint(medicine.category || 'Other');
+  const initial = (medicine.name || '?').trim().charAt(0).toUpperCase();
+  return `<div class="flex-none rounded-md flex items-center justify-center text-white font-display font-semibold" style="width:${size}px;height:${size}px;background:linear-gradient(135deg, ${tint}, ${tint}cc);font-size:${Math.round(size*0.4)}px">${initial}</div>`;
+}
+
+function stampHTML(kind, key){
+  const meta = kind === 'stock' ? STOCK_META[key] : REQ_META[key];
+  return `<span class="stamp ${meta.text} ${meta.bg}"><span class="dot"></span>${esc(meta.label)}</span>`;
+}
+
+function stockMeterHTML(m){
+  const status = getStockStatus(m);
+  const meta = STOCK_META[status];
+  const pct = stockFillPct(m);
+  return `
+    <div>
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="font-mono text-xs font-semibold">${m.stock} <span class="text-inksoft font-normal">${esc(m.unit)}</span></span>
+        ${stampHTML('stock', status)}
+      </div>
+      <div class="vial"><div class="vial-fill" style="width:${pct}%;background:${meta.fill}"></div></div>
+    </div>`;
+}
+
+function medicineCardHTML(m, isAdmin){
+  const status = getStockStatus(m);
+  const photoBlock = m.photo
+    ? `<img src="${m.photo}" class="w-full h-36 object-cover">`
+    : `<div class="w-full h-36 flex items-center justify-center" style="background:linear-gradient(135deg, ${categoryTint(m.category)}22, ${categoryTint(m.category)}0d)">${placeholderTile(m, 56)}</div>`;
+
+  const adminControls = isAdmin ? `
+    <div class="absolute top-2 right-2 flex gap-1.5">
+      <button data-action="edit-medicine" data-id="${m.id}" class="icon-btn" aria-label="Edit ${esc(m.name)}">${icon('edit',15)}</button>
+      <button data-action="delete-medicine" data-id="${m.id}" class="icon-btn hover:!text-danger" aria-label="Delete ${esc(m.name)}">${icon('trash',15)}</button>
+    </div>` : '';
+
+  const footer = isAdmin
+    ? `<p class="text-[11px] text-inksoft font-mono">${esc(m.batch)}</p>`
+    : `<button data-action="open-request" data-id="${m.id}" ${status==='out' ? 'disabled' : ''} class="btn-primary w-full !py-2 !text-xs">${status==='out' ? 'Out of stock' : 'Request'}</button>`;
+
+  return `
+    <div class="bg-surface border border-line rounded-xl2 overflow-hidden flex flex-col shadow-sm">
+      <div class="relative">
+        ${photoBlock}
+        ${adminControls}
+      </div>
+      <div class="ticket-line"></div>
+      <div class="p-4 flex flex-col gap-3 flex-1">
+        <div>
+          <p class="text-[11px] font-mono text-inksoft uppercase tracking-wide">${esc(m.category)}</p>
+          <h4 class="font-display font-semibold text-[15px] leading-snug mt-0.5">${esc(m.name)}</h4>
+          <p class="text-xs text-inksoft mt-1 clamp-2">${esc(m.description) || 'No description added.'}</p>
+        </div>
+        ${stockMeterHTML(m)}
+        <div class="mt-auto pt-1">${footer}</div>
+      </div>
+    </div>`;
+}
+
+function emptyStateHTML(iconName, title, body){
+  return `
+    <div class="col-span-full flex flex-col items-center justify-center text-center py-16 px-4">
+      <div class="w-12 h-12 rounded-full bg-primarysoft text-primary flex items-center justify-center mb-3">${icon(iconName, 22)}</div>
+      <p class="font-display font-semibold text-base">${esc(title)}</p>
+      <p class="text-sm text-inksoft mt-1 max-w-xs">${esc(body)}</p>
+    </div>`;
+}
+
+function requestRowHTML(r, mode){
+  const m = findMedicine(r.medicineId);
+  const canApprove = r.status === 'pending';
+  const canFulfill = r.status === 'approved';
+  const canReject = r.status === 'pending' || r.status === 'approved';
+  const canCancel = mode === 'mine' && r.status === 'pending';
+
+  let actions = '';
+  if (mode === 'admin'){
+    const btns = [];
+    if (canApprove) btns.push(`<button data-action="approve-request" data-id="${r.id}" class="btn-primary !py-1.5 !px-3 !text-xs">Approve</button>`);
+    if (canFulfill) btns.push(`<button data-action="fulfill-request" data-id="${r.id}" class="btn-primary !py-1.5 !px-3 !text-xs">Mark fulfilled</button>`);
+    if (canReject) btns.push(`<button data-action="reject-request" data-id="${r.id}" class="btn-secondary !py-1.5 !px-3 !text-xs hover:!text-danger">Reject</button>`);
+    actions = btns.join('');
+  } else if (canCancel){
+    actions = `<button data-action="cancel-request" data-id="${r.id}" class="btn-secondary !py-1.5 !px-3 !text-xs hover:!text-danger">Cancel</button>`;
+  }
+
+  return `
+    <div class="flex items-center gap-4 bg-surface border border-line rounded-xl2 p-3.5">
+      ${m && m.photo ? `<img src="${m.photo}" class="w-12 h-12 rounded-lg object-cover flex-none">` : placeholderTile(m || {name:r.medicineName, category:'Other'}, 48)}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-semibold text-sm truncate">${esc(r.medicineName)}</p>
+          ${stampHTML('req', r.status)}
+        </div>
+        <p class="text-xs text-inksoft mt-0.5">
+          <span class="font-mono">${r.quantity} ${esc(r.medicineUnit)}</span>
+          ${mode==='admin' ? ` · requested by ${esc(r.requesterName)}` : ''}
+          · ${formatDate(r.createdAt)}
+        </p>
+        ${r.notes ? `<p class="text-xs text-inksoft mt-1 italic">"${esc(r.notes)}"</p>` : ''}
+        ${r.reason ? `<p class="text-xs text-danger mt-1">Reason: ${esc(r.reason)}</p>` : ''}
+      </div>
+      <div class="flex-none flex gap-1.5 flex-wrap justify-end">${actions}</div>
+    </div>`;
+}
+
+function statCardHTML(label, value, iconName, accent){
+  return `
+    <div class="bg-surface border border-line rounded-xl2 p-4 ${accent ? 'border-l-[3px]' : ''}" ${accent ? `style="border-left-color:${accent}"` : ''}>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-inksoft">${icon(iconName, 16)}</span>
+      </div>
+      <p class="font-display font-semibold text-2xl leading-none">${value}</p>
+      <p class="text-xs text-inksoft mt-1.5">${esc(label)}</p>
+    </div>`;
+}
+
+/* ============================== TAB CONTENT BUILDERS ============================== */
+function filteredMedicines(){
+  const q = state.search.trim().toLowerCase();
+  return state.medicines.filter(m => {
+    const matchesQ = !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
+    const matchesCat = state.category === 'All' || m.category === state.category;
+    return matchesQ && matchesCat;
+  });
+}
+function filteredRequests(mode){
+  const q = state.search.trim().toLowerCase();
+  return state.requests
+    .filter(r => mode === 'mine' ? r.requesterName.trim().toLowerCase() === state.userName.trim().toLowerCase() : true)
+    .filter(r => state.reqStatusFilter === 'All' || r.status === state.reqStatusFilter)
+    .filter(r => !q || r.medicineName.toLowerCase().includes(q) || r.requesterName.toLowerCase().includes(q))
+    .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function categoryChipsHTML(){
+  const cats = ['All', ...CATEGORIES];
+  return cats.map(c => `<button data-action="set-category" data-category="${esc(c)}" class="chip ${state.category===c?'active':''}">${esc(c)}</button>`).join('');
+}
+function statusChipsHTML(){
+  const statuses = ['All','pending','approved','fulfilled','rejected','cancelled'];
+  return statuses.map(s => `<button data-action="set-status-filter" data-status="${s}" class="chip ${state.reqStatusFilter===s?'active':''}">${s==='All'?'All':esc(REQ_META[s].label)}</button>`).join('');
+}
+
+function adminInventoryHTML(){
+  const meds = state.medicines;
+  const totalStock = meds.reduce((s,m)=>s+m.stock,0);
+  const lowCount = meds.filter(m=>getStockStatus(m)==='low').length;
+  const outCount = meds.filter(m=>getStockStatus(m)==='out').length;
+  return `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      ${statCardHTML('Medicines listed', meds.length, 'layers')}
+      ${statCardHTML('Units in stock', totalStock, 'box')}
+      ${statCardHTML('Low stock', lowCount, 'alert', lowCount ? '#C97A2B' : null)}
+      ${statCardHTML('Out of stock', outCount, 'slash', outCount ? '#B23B3B' : null)}
+    </div>
+    <div class="flex items-center gap-3 flex-wrap justify-between mb-4">
+      <div class="relative flex-1 min-w-[200px] max-w-sm">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-inksoft">${icon('search',15)}</span>
+        <input id="search-input" class="field-input !pl-9" placeholder="Search medicines…" aria-label="Search medicines" value="${esc(state.search)}">
+      </div>
+      <button data-action="open-add-medicine" class="btn-primary inline-flex items-center gap-1.5">${icon('plus',15)} Add medicine</button>
+    </div>
+    <div class="flex gap-2 flex-wrap mb-5">${categoryChipsHTML()}</div>
+    <div id="inventory-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+  `;
+}
+function updateInventoryGrid(){
+  const el = document.getElementById('inventory-grid');
+  if (!el) return;
+  const list = filteredMedicines();
+  el.innerHTML = list.length
+    ? list.map(m => medicineCardHTML(m, true)).join('')
+    : emptyStateHTML('box', state.medicines.length ? 'No matches' : 'Nothing in the formulary yet', state.medicines.length ? 'Try a different search or category.' : 'Add the first medicine to get started.');
+}
+
+function adminRequestsHTML(){
+  return `
+    <div class="flex items-center gap-3 flex-wrap justify-between mb-4">
+      <div class="relative flex-1 min-w-[200px] max-w-sm">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-inksoft">${icon('search',15)}</span>
+        <input id="search-input" class="field-input !pl-9" placeholder="Search by medicine or requester…" aria-label="Search requests" value="${esc(state.search)}">
+      </div>
+    </div>
+    <div class="flex gap-2 flex-wrap mb-5">${statusChipsHTML()}</div>
+    <div id="requests-list" class="flex flex-col gap-3"></div>
+  `;
+}
+function updateRequestsList(){
+  const el = document.getElementById('requests-list');
+  if (!el) return;
+  const list = filteredRequests('all');
+  el.innerHTML = list.length
+    ? list.map(r => requestRowHTML(r, 'admin')).join('')
+    : `<div>${emptyStateHTML('inbox', 'No requests waiting', 'New requests from users will show up here.')}</div>`;
+}
+
+function userBrowseHTML(){
+  return `
+    <div class="flex items-center gap-3 flex-wrap mb-4">
+      <div class="relative flex-1 min-w-[200px] max-w-sm">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-inksoft">${icon('search',15)}</span>
+        <input id="search-input" class="field-input !pl-9" placeholder="Search medicines…" aria-label="Search medicines" value="${esc(state.search)}">
+      </div>
+    </div>
+    <div class="flex gap-2 flex-wrap mb-5">${categoryChipsHTML()}</div>
+    <div id="browse-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+  `;
+}
+function updateBrowseGrid(){
+  const el = document.getElementById('browse-grid');
+  if (!el) return;
+  const list = filteredMedicines();
+  el.innerHTML = list.length
+    ? list.map(m => medicineCardHTML(m, false)).join('')
+    : emptyStateHTML('search', 'No medicines match', 'Try a different search or category.');
+}
+
+function userMyRequestsHTML(){
+  return `
+    <div id="my-requests-list" class="flex flex-col gap-3"></div>
+  `;
+}
+function updateMyRequestsList(){
+  const el = document.getElementById('my-requests-list');
+  if (!el) return;
+  const list = filteredRequests('mine');
+  el.innerHTML = list.length
+    ? list.map(r => requestRowHTML(r, 'mine')).join('')
+    : `<div>${emptyStateHTML('inbox', 'No requests yet', 'Browse the formulary and request something to see it tracked here.')}</div>`;
+}
+
+/* ============================== SHELL / APP RENDER ============================== */
+function tabsForRole(){
+  const pendingCount = state.requests.filter(r=>r.status==='pending').length;
+  if (state.role === 'admin'){
+    return [
+      { key: 'inventory', label: 'Inventory' },
+      { key: 'requests', label: `Requests${pendingCount ? ` (${pendingCount})` : ''}` },
+    ];
+  }
+  return [
+    { key: 'browse', label: 'Browse' },
+    { key: 'mine', label: 'My requests' },
+  ];
+}
+
+function onboardingBannerHTML(){
+  if (state.onboardingDismissed) return '';
+  return `
+    <div class="bg-primarysoft border border-primary/20 rounded-xl2 px-4 py-3 mb-6 flex items-start gap-3">
+      <span class="text-primary mt-0.5 flex-none">${icon('bell',16)}</span>
+      <p class="text-xs text-ink/80 flex-1">This inventory is shared — changes made here are visible to everyone using this app. Use the switch above to view it as an admin or as a user.</p>
+      <button data-action="dismiss-onboarding" class="text-primary flex-none" aria-label="Dismiss">${icon('x',15)}</button>
+    </div>`;
+}
+
+function renderApp(){
+  const tabs = tabsForRole();
+  if (!tabs.find(t => t.key === state.tab)) state.tab = tabs[0].key;
+  const pendingCount = state.requests.filter(r=>r.status==='pending').length;
+
+  document.getElementById('app').innerHTML = `
+    <header class="border-b border-line bg-surface/90 backdrop-blur sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center flex-none">${icon('logo',19)}</div>
+          <div>
+            <h1 class="font-display font-semibold text-lg leading-none">Formulary</h1>
+            <p class="text-[11px] text-inksoft mt-1 hidden sm:block">Know what's in stock, always.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          ${state.role==='admin' && pendingCount ? `<span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-amber bg-ambersoft px-2.5 py-1.5 rounded-full">${icon('bell',13)} ${pendingCount} pending</span>` : ''}
+          <div class="flex items-center bg-paper border border-line rounded-full p-1">
+            <button data-action="set-role" data-role="user" class="role-btn ${state.role==='user'?'active':''}">User</button>
+            <button data-action="set-role" data-role="admin" class="role-btn ${state.role==='admin'?'active':''}">Admin</button>
+          </div>
+        </div>
+      </div>
+      <nav class="max-w-7xl mx-auto px-4 sm:px-6 flex gap-5">
+        ${tabs.map(t => `<button data-action="set-tab" data-tab="${t.key}" class="tab-btn ${state.tab===t.key?'active':''}">${t.label}</button>`).join('')}
+      </nav>
+    </header>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      ${onboardingBannerHTML()}
+      <div id="tab-content"></div>
+    </main>
+  `;
+
+  const content = document.getElementById('tab-content');
+  if (state.role === 'admin' && state.tab === 'inventory'){ content.innerHTML = adminInventoryHTML(); updateInventoryGrid(); }
+  else if (state.role === 'admin' && state.tab === 'requests'){ content.innerHTML = adminRequestsHTML(); updateRequestsList(); }
+  else if (state.role === 'user' && state.tab === 'browse'){ content.innerHTML = userBrowseHTML(); updateBrowseGrid(); }
+  else if (state.role === 'user' && state.tab === 'mine'){ content.innerHTML = userMyRequestsHTML(); updateMyRequestsList(); }
+
+  focusSearchIfNeeded();
+}
+
+function refreshCurrentList(){
+  if (state.role === 'admin' && state.tab === 'inventory') updateInventoryGrid();
+  else if (state.role === 'admin' && state.tab === 'requests') updateRequestsList();
+  else if (state.role === 'user' && state.tab === 'browse') updateBrowseGrid();
+  else if (state.role === 'user' && state.tab === 'mine') updateMyRequestsList();
+}
+
+let _refocusSearch = false;
+function focusSearchIfNeeded(){
+  if (_refocusSearch){
+    const input = document.getElementById('search-input');
+    if (input){ input.focus(); const v = input.value; input.value=''; input.value=v; }
+    _refocusSearch = false;
+  }
+}
+
+function renderLoading(){
+  document.getElementById('app').innerHTML = `
+    <div class="min-h-screen flex flex-col items-center justify-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center animate-pulse">${icon('logo',20)}</div>
+      <p class="text-sm text-inksoft">Loading formulary…</p>
+    </div>`;
+}
+
+/* ============================== EVENT HANDLERS ============================== */
+function handleAppClick(e){
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  if (action === 'set-role'){
+    state.role = btn.dataset.role;
+    state.tab = state.role === 'admin' ? 'inventory' : 'browse';
+    state.search = ''; state.category = 'All'; state.reqStatusFilter = 'All';
+    renderApp();
+  } else if (action === 'set-tab'){
+    state.tab = btn.dataset.tab;
+    state.search = '';
+    renderApp();
+  } else if (action === 'set-category'){
+    state.category = btn.dataset.category;
+    document.querySelectorAll('.chip[data-action="set-category"]').forEach(c => c.classList.toggle('active', c.dataset.category === state.category));
+    refreshCurrentList();
+  } else if (action === 'set-status-filter'){
+    state.reqStatusFilter = btn.dataset.status;
+    document.querySelectorAll('.chip[data-action="set-status-filter"]').forEach(c => c.classList.toggle('active', c.dataset.status === state.reqStatusFilter));
+    refreshCurrentList();
+  } else if (action === 'open-add-medicine'){
+    openMedicineForm(null);
+  } else if (action === 'edit-medicine'){
+    openMedicineForm(findMedicine(btn.dataset.id));
+  } else if (action === 'delete-medicine'){
+    const m = findMedicine(btn.dataset.id);
+    if (!m) return;
+    openConfirm({
+      title: 'Delete medicine',
+      body: `Remove "${m.name}" from the formulary? This can't be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        state.medicines = state.medicines.filter(x => x.id !== m.id);
+        await saveMedicines();
+        refreshCurrentList();
+        renderApp();
+        showToast('Medicine deleted');
+      }
+    });
+  } else if (action === 'open-request'){
+    const m = findMedicine(btn.dataset.id);
+    if (m) openRequestForm(m);
+  } else if (action === 'approve-request'){
+    handleApprove(btn.dataset.id);
+  } else if (action === 'fulfill-request'){
+    handleFulfill(btn.dataset.id);
+  } else if (action === 'reject-request'){
+    const r = findRequest(btn.dataset.id);
+    if (r) openRejectForm(r);
+  } else if (action === 'cancel-request'){
+    const r = findRequest(btn.dataset.id);
+    if (!r) return;
+    openConfirm({
+      title: 'Cancel request',
+      body: `Cancel your request for ${r.quantity} ${r.medicineUnit} of ${r.medicineName}?`,
+      confirmLabel: 'Cancel request',
+      danger: true,
+      onConfirm: async () => {
+        r.status = 'cancelled';
+        await saveRequests();
+        refreshCurrentList();
+        renderApp();
+        showToast('Request cancelled');
+      }
+    });
+  } else if (action === 'dismiss-onboarding'){
+    dismissOnboarding();
+    const banner = btn.closest('.bg-primarysoft');
+    if (banner) banner.remove();
+  }
+}
+
+function handleAppInput(e){
+  if (e.target.id === 'search-input'){
+    state.search = e.target.value;
+    _refocusSearch = true;
+    refreshCurrentList();
+    focusSearchIfNeeded();
+  }
+}
+
+async function handleApprove(id){
+  const r = findRequest(id);
+  if (!r) return;
+  const m = findMedicine(r.medicineId);
+  if (m && r.quantity > m.stock){
+    showToast(`Only ${m.stock} ${m.unit} available — restock or reject instead`, 'error');
+    return;
+  }
+  r.status = 'approved';
+  await saveRequests();
+  refreshCurrentList();
+  renderApp();
+  showToast('Request approved');
+}
+
+async function handleFulfill(id){
+  const r = findRequest(id);
+  if (!r) return;
+  const m = findMedicine(r.medicineId);
+  if (!m){ showToast('Medicine no longer exists', 'error'); return; }
+  if (r.quantity > m.stock){
+    showToast(`Not enough stock to fulfill — ${m.stock} ${m.unit} available`, 'error');
+    return;
+  }
+  m.stock -= r.quantity;
+  r.status = 'fulfilled';
+  r.fulfilledAt = new Date().toISOString();
+  await Promise.all([saveMedicines(), saveRequests()]);
+  refreshCurrentList();
+  renderApp();
+  showToast('Request marked as fulfilled');
+}
+
+/* ---- Modal-scoped events ---- */
+function handleModalClick(e){
+  const overlay = e.target.closest('[data-action="overlay-close"]');
+  if (overlay && !e.target.closest('[data-stop]')){ closeModal(); return; }
+
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+
+  if (action === 'close-modal'){
+    closeModal();
+  } else if (action === 'confirm-action'){
+    const fn = pendingConfirmAction;
+    closeModal();
+    if (fn) fn();
+  } else if (action === 'remove-photo'){
+    pendingPhotoData = null;
+    const wrap = document.getElementById('mf-preview-wrap');
+    if (wrap) wrap.classList.add('hidden');
+    btn.classList.add('hidden');
+    const fileInput = document.getElementById('mf-photo');
+    if (fileInput) fileInput.value = '';
+  }
+}
+
+async function handleModalChange(e){
+  if (e.target.id === 'mf-photo' && e.target.files && e.target.files[0]){
+    const file = e.target.files[0];
+    if (!file.type.startsWith('image/')){ showToast('Please choose an image file', 'error'); return; }
+    try {
+      const dataUrl = await resizeImage(file);
+      pendingPhotoData = dataUrl;
+      const wrap = document.getElementById('mf-preview-wrap');
+      const img = document.getElementById('mf-preview');
+      const removeBtn = document.getElementById('mf-remove-photo');
+      if (img) img.src = dataUrl;
+      if (wrap) wrap.classList.remove('hidden');
+      if (removeBtn) removeBtn.classList.remove('hidden');
+    } catch(err){
+      showToast('Could not process that image', 'error');
+    }
+  }
+}
+
+async function handleModalSubmit(e){
+  e.preventDefault();
+  const form = e.target;
+
+  if (form.id === 'medicine-form'){
+    const id = form.querySelector('[name=id]').value;
+    const name = form.querySelector('[name=name]').value.trim();
+    const category = form.querySelector('[name=category]').value;
+    const description = form.querySelector('[name=description]').value.trim();
+    const unit = form.querySelector('[name=unit]').value.trim() || 'units';
+    const stockRaw = form.querySelector('[name=stock]').value;
+    const thresholdRaw = form.querySelector('[name=threshold]').value;
+    const stock = parseInt(stockRaw, 10);
+    const threshold = thresholdRaw === '' ? 10 : parseInt(thresholdRaw, 10);
+
+    if (!name){ showToast('Medicine name is required', 'error'); return; }
+    if (isNaN(stock) || stock < 0){ showToast('Enter a valid stock quantity', 'error'); return; }
+
+    if (id){
+      const m = findMedicine(id);
+      if (m){
+        Object.assign(m, { name, category, description, unit, stock, threshold: isNaN(threshold)?10:threshold, photo: pendingPhotoData });
+      }
+      await saveMedicines();
+      closeModal();
+      refreshCurrentList();
+      renderApp();
+      showToast('Medicine updated');
+    } else {
+      const m = {
+        id: generateId(),
+        batch: form.querySelector('[name=batch]').value || batchCode(),
+        name, category, description, unit, stock,
+        threshold: isNaN(threshold)?10:threshold,
+        photo: pendingPhotoData,
+        createdAt: new Date().toISOString(),
+      };
+      state.medicines.unshift(m);
+      await saveMedicines();
+      closeModal();
+      refreshCurrentList();
+      renderApp();
+      showToast('Medicine added');
+    }
+  }
+
+  else if (form.id === 'request-form'){
+    const medicineId = form.querySelector('[name=medicineId]').value;
+    const requesterName = form.querySelector('[name=requesterName]').value.trim();
+    const quantity = parseInt(form.querySelector('[name=quantity]').value, 10);
+    const notes = form.querySelector('[name=notes]').value.trim();
+    const m = findMedicine(medicineId);
+
+    if (!requesterName){ showToast('Please enter your name', 'error'); return; }
+    if (!m){ showToast('This medicine is no longer available', 'error'); closeModal(); return; }
+    if (isNaN(quantity) || quantity < 1){ showToast('Enter a valid quantity', 'error'); return; }
+    if (quantity > m.stock){ showToast(`Only ${m.stock} ${m.unit} available`, 'error'); return; }
+
+    const r = {
+      id: generateId(),
+      medicineId: m.id,
+      medicineName: m.name,
+      medicineUnit: m.unit,
+      requesterName,
+      quantity,
+      notes,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    state.requests.unshift(r);
+    await saveRequests();
+    await saveProfileName(requesterName);
+    closeModal();
+    refreshCurrentList();
+    renderApp();
+    showToast('Request submitted');
+  }
+
+  else if (form.id === 'reject-form'){
+    const requestId = form.querySelector('[name=requestId]').value;
+    const reason = form.querySelector('[name=reason]').value.trim();
+    const r = findRequest(requestId);
+    if (r){
+      r.status = 'rejected';
+      if (reason) r.reason = reason;
+      await saveRequests();
+      closeModal();
+      refreshCurrentList();
+      renderApp();
+      showToast('Request rejected');
+    }
+  }
+}
+
+/* ============================== INIT ============================== */
+function bindGlobalEvents(){
+  document.getElementById('app').addEventListener('click', handleAppClick);
+  document.getElementById('app').addEventListener('input', handleAppInput);
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.addEventListener('click', handleModalClick);
+  modalRoot.addEventListener('submit', handleModalSubmit);
+  modalRoot.addEventListener('change', handleModalChange);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+}
+
+(async function init(){
+  renderLoading();
+  await Promise.all([loadMedicines(), loadRequests(), loadProfile()]);
+  bindGlobalEvents();
+  renderApp();
+})();
+</script>
+</body>
+</html>
