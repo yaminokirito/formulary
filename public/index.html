@@ -334,11 +334,26 @@ async function firestoreGetAll(collectionName){
 async function firestoreSetAll(collectionName, items){
   if (!useFirestore) return false;
   try {
+    // Read current documents so we can delete any that were removed locally
+    const snapshot = await firestoreDb.collection(collectionName).get();
+    const existingIds = [];
+    snapshot.forEach(doc => existingIds.push(doc.id));
+
     const batch = firestoreDb.batch();
+    const newIds = items.map(it => it.id);
     items.forEach(item => {
       const ref = firestoreDb.collection(collectionName).doc(item.id);
       batch.set(ref, item);
     });
+
+    // Delete docs that exist remotely but are no longer present locally
+    existingIds.forEach(id => {
+      if (!newIds.includes(id)){
+        const ref = firestoreDb.collection(collectionName).doc(id);
+        batch.delete(ref);
+      }
+    });
+
     await batch.commit();
     return true;
   } catch(e){ console.error(e); return false; }
