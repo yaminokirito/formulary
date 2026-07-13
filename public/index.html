@@ -312,13 +312,20 @@ const FIREBASE_CONFIG = {
 };
 let useFirestore = false;
 let firestoreDb = null;
+function disableFirestore(){
+  if (useFirestore) {
+    useFirestore = false;
+    console.warn('Firestore disabled, falling back to localStorage');
+  }
+}
+
 if (typeof firebase !== 'undefined' && FIREBASE_CONFIG){
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     firestoreDb = firebase.firestore();
     useFirestore = true;
     console.log('Firestore enabled');
-  } catch(e){ console.error('Firebase init error', e); }
+  } catch(e){ console.error('Firebase init error', e); disableFirestore(); }
 }
 
 async function firestoreGetAll(collectionName){
@@ -385,6 +392,12 @@ async function safeGet(key, shared){
       return res ? res.value : null;
     }
   } catch(e){}
+
+  // Fallback to localStorage for browsers when other providers unavailable
+  try {
+    const v = localStorage.getItem(key);
+    return v !== null ? v : null;
+  } catch(e){}
   return null;
 }
 
@@ -394,20 +407,28 @@ async function safeSet(key, value, shared){
     if (useFirestore){
       if (key === 'medicines'){
         const ok = await firestoreSetAll('medicines', JSON.parse(value));
-        await firestoreDb.collection('meta').doc('medicines-updated').set({ts: Date.now()});
-        return ok;
+        if (ok){
+          await firestoreDb.collection('meta').doc('medicines-updated').set({ts: Date.now()});
+          return true;
+        }
+        disableFirestore();
       }
       if (key === 'requests'){
         const ok = await firestoreSetAll('requests', JSON.parse(value));
-        await firestoreDb.collection('meta').doc('requests-updated').set({ts: Date.now()});
-        return ok;
+        if (ok){
+          await firestoreDb.collection('meta').doc('requests-updated').set({ts: Date.now()});
+          return true;
+        }
+        disableFirestore();
       }
       if (key === 'profile-name' || key === 'onboarding-dismissed'){
-        await firestoreDb.collection('meta').doc(key).set({value: value});
-        return true;
+        try {
+          await firestoreDb.collection('meta').doc(key).set({value: value});
+          return true;
+        } catch(e){ console.error('Firestore write error', e); disableFirestore(); }
       }
     }
-  } catch(e){ console.error('Firestore write error', e); }
+  } catch(e){ console.error('Firestore write error', e); disableFirestore(); }
 
   try {
     if (window.storage && window.storage.set) {
@@ -415,6 +436,13 @@ async function safeSet(key, value, shared){
       return !!res;
     }
   } catch(e){}
+
+  // Fallback to localStorage for browsers when other providers unavailable
+  try {
+    localStorage.setItem(key, value);
+    console.log('Saved to localStorage fallback:', key);
+    return true;
+  } catch(e){ console.error('localStorage write error', e); }
   return false;
 }
 
