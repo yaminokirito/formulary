@@ -11,7 +11,14 @@ This folder contains your static site. Follow the steps below to enable CI deplo
 2) Add the key to your GitHub repository secrets
 - In your GitHub repo go to Settings → Secrets and variables → Actions → New repository secret
 - Name: `FIREBASE_SERVICE_ACCOUNT`
-- Value: paste the entire JSON key contents
+- Value: paste the entire JSON key contents exactly as plain text.
+- Do not upload a binary or ZIP file, and do not base64-encode it.
+- If you see an error like `failed to parse service account key JSON credentials` or weird characters such as `�`, recreate the secret using the raw JSON file contents.
+
+  Example using GitHub CLI:
+  ```bash
+  gh secret set FIREBASE_SERVICE_ACCOUNT --body "$(cat path/to/service-account.json)"
+  ```
 
 3) Ensure your site files are in the repository under the `public/` directory
 - Copy `formulary.html` into `public/index.html` if not already present
