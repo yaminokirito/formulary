@@ -371,22 +371,39 @@ async function safeSet(key, value, shared){
 }
 
 async function loadMedicines(){
-  const raw = await safeGet('medicines', true);
-  state.medicines = raw ? JSON.parse(raw) : [];
-  if (state.medicines.length === 0){
+  try {
+    const raw = await safeGet('medicines', true);
+    state.medicines = raw ? JSON.parse(raw) : [];
+    if (state.medicines.length === 0){
+      state.medicines = seedMedicines();
+      await saveMedicines();
+    }
+  } catch(e){
+    console.error('loadMedicines error', e);
     state.medicines = seedMedicines();
     await saveMedicines();
   }
 }
 async function loadRequests(){
-  const raw = await safeGet('requests', true);
-  state.requests = raw ? JSON.parse(raw) : [];
+  try {
+    const raw = await safeGet('requests', true);
+    state.requests = raw ? JSON.parse(raw) : [];
+  } catch(e){
+    console.error('loadRequests error', e);
+    state.requests = [];
+  }
 }
 async function loadProfile(){
-  const raw = await safeGet('profile-name', false);
-  state.userName = raw || '';
-  const dismissed = await safeGet('onboarding-dismissed', false);
-  state.onboardingDismissed = dismissed === 'true';
+  try {
+    const raw = await safeGet('profile-name', false);
+    state.userName = raw || '';
+    const dismissed = await safeGet('onboarding-dismissed', false);
+    state.onboardingDismissed = dismissed === 'true';
+  } catch(e){
+    console.error('loadProfile error', e);
+    state.userName = '';
+    state.onboardingDismissed = false;
+  }
 }
 async function saveMedicines(){
   const ok = await safeSet('medicines', JSON.stringify(state.medicines), true);
@@ -1219,7 +1236,11 @@ function bindGlobalEvents(){
 
 (async function init(){
   renderLoading();
-  await Promise.all([loadMedicines(), loadRequests(), loadProfile()]);
+  try {
+    await Promise.all([loadMedicines(), loadRequests(), loadProfile()]);
+  } catch(e){
+    console.error('App init error', e);
+  }
   bindGlobalEvents();
   renderApp();
 })();
