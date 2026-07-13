@@ -1050,6 +1050,13 @@ function handleAppClick(e){
   const action = btn.dataset.action;
 
   if (action === 'set-role'){
+    if (btn.dataset.role === 'admin' && state.role !== 'admin'){
+      const password = prompt('Enter admin password:');
+      if (password !== 'tcs1234'){
+        showToast('Incorrect admin password', 'error');
+        return;
+      }
+    }
     state.role = btn.dataset.role;
     state.tab = state.role === 'admin' ? 'inventory' : 'browse';
     state.search = ''; state.category = 'All'; state.reqStatusFilter = 'All';
