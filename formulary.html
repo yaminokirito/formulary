@@ -1241,11 +1241,13 @@ async function handleModalSubmit(e){
         createdAt: new Date().toISOString(),
       };
       state.medicines.unshift(m);
-      await saveMedicines();
+      console.log('medicine add payload', m);
+      const saved = await saveMedicines();
+      console.log('saveMedicines result', saved);
       closeModal();
       refreshCurrentList();
       renderApp();
-      showToast('Medicine added');
+      showToast(saved ? 'Medicine added' : 'Could not save medicine');
     }
   }
 
