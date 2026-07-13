@@ -236,6 +236,39 @@ const state = {
 let pendingPhotoData = null;
 let pendingConfirmAction = null;
 
+// Global error handlers to surface runtime errors on the page for debugging
+function _appendDebug(msg){
+  try{
+    const id = 'debug-box';
+    let el = document.getElementById(id);
+    if (!el){
+      el = document.createElement('pre');
+      el.id = id;
+      el.style.position = 'fixed';
+      el.style.right = '12px';
+      el.style.bottom = '12px';
+      el.style.zIndex = '99999';
+      el.style.maxWidth = '40%';
+      el.style.maxHeight = '40%';
+      el.style.overflow = 'auto';
+      el.style.background = 'rgba(0,0,0,0.7)';
+      el.style.color = 'white';
+      el.style.padding = '8px';
+      el.style.fontSize = '12px';
+      el.style.borderRadius = '8px';
+      el.style.whiteSpace = 'pre-wrap';
+      document.body.appendChild(el);
+    }
+    el.textContent = (el.textContent ? el.textContent + '\n' : '') + msg;
+  }catch(e){ console.error('debug append failed', e); }
+}
+
+window.addEventListener('error', function(ev){
+  try{ const m = ev && ev.error ? (ev.error.stack || ev.error.message) : (ev && ev.message) || String(ev); console.error('window.error', m); _appendDebug('ERROR: ' + m); }catch(e){}
+});
+window.addEventListener('unhandledrejection', function(ev){
+  try{ const m = ev && ev.reason ? (ev.reason.stack || ev.reason.message || String(ev.reason)) : String(ev); console.error('unhandledrejection', m); _appendDebug('UNHANDLED REJECTION: ' + m); }catch(e){}
+});
 /* ============================== HELPERS ============================== */
 function esc(str){
   if (str === null || str === undefined) return '';
