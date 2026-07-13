@@ -326,7 +326,7 @@ async function firestoreGetAll(collectionName){
   try {
     const snapshot = await firestoreDb.collection(collectionName).get();
     const arr = [];
-    snapshot.forEach(doc => arr.push(doc.data()));
+    snapshot.forEach(doc => arr.push(Object.assign({ id: doc.id }, doc.data())));
     return arr;
   } catch(e){ console.error(e); return null; }
 }
