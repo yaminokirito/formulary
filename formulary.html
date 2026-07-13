@@ -370,6 +370,11 @@ async function safeGet(key, shared){
       return res ? res.value : null;
     }
   } catch(e){}
+  // Fallback to localStorage for browsers when other providers unavailable
+  try {
+    const v = localStorage.getItem(key);
+    return v !== null ? v : null;
+  } catch(e){}
   return null;
 }
 
@@ -399,6 +404,11 @@ async function safeSet(key, value, shared){
       const res = await window.storage.set(key, value, shared);
       return !!res;
     }
+  } catch(e){}
+  // Fallback to localStorage for browsers when other providers unavailable
+  try {
+    localStorage.setItem(key, value);
+    return true;
   } catch(e){}
   return false;
 }
